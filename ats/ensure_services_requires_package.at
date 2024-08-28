@@ -1,0 +1,21 @@
+# AT ensures that the service requires the package thats under the service, ie the installation of
+# the service package should come before the ensure service is started task
+
+
+litp create -t service -p /ms/services/fun-machine -o service_name=fun-machine
+litp create -p /software/items/package_funmachine -t mock-package -o name="fun-machine_CXP8928993"
+litp inherit -p /ms/services/fun-machine/packages/fun-machine -s /software/items/package_funmachine
+
+let __task_1 ConfigTask ms1 package fun-machine_CXP8928993 /ms/services/fun-machine/packages/fun-machine
+let __task_2 ConfigTask ms1 service fun-machine /ms/services/fun-machine
+litp create_plan
+assertConfigTask ms1 package fun-machine_CXP8928993 /ms/services/fun-machine/packages/fun-machine ensure='installed'
+assertConfigTask ms1 service fun-machine /ms/services/fun-machine enable='true' ensure='running' name='fun-machine'
+
+
+assertTaskBeforeTask __task_1 __task_2
+litp run_plan
+
+
+
+

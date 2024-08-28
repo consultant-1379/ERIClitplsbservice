@@ -1,0 +1,30 @@
+litp create -t os-profile -p /software/profiles/rhel_6_2 -o name='sample-profile' path='/profiles/node-iso/'
+litp create -t system -p /infrastructure/systems/system1 -o system_name='MN1VM'
+litp create -t storage-profile-base -p /infrastructure/storage/storage_profiles/profile_1
+
+litp create -t deployment -p /deployments/d1
+litp create -t cluster -p /deployments/d1/clusters/c1
+litp create -t node -p /deployments/d1/clusters/c1/nodes/n1 -o hostname=node1
+litp create -t node -p /deployments/d1/clusters/c1/nodes/n2 -o hostname=node2
+
+litp create -t eth -p /deployments/d1/clusters/c1/nodes/n1/network_interfaces/nic0 -o device_name=eth0 network_name='nodes' macaddress='08:00:27:24:8f:27' ipaddress=10.10.10.101
+litp create -t eth -p /deployments/d1/clusters/c1/nodes/n2/network_interfaces/nic0 -o device_name=eth0 network_name='nodes' macaddress='08:00:27:24:8f:28' ipaddress=10.10.10.102
+
+litp inherit -p /deployments/d1/clusters/c1/nodes/n1/system -s /infrastructure/systems/system1
+litp inherit -p /deployments/d1/clusters/c1/nodes/n1/os -s /software/profiles/rhel_6_2
+litp inherit -p /deployments/d1/clusters/c1/nodes/n1/storage_profile -s /infrastructure/storage/storage_profiles/profile_1
+
+litp inherit -p /deployments/d1/clusters/c1/nodes/n2/system -s /infrastructure/systems/system1
+litp inherit -p /deployments/d1/clusters/c1/nodes/n2/os -s /software/profiles/rhel_6_2
+litp inherit -p /deployments/d1/clusters/c1/nodes/n2/storage_profile -s /infrastructure/storage/storage_profiles/profile_1
+
+litp create -t vcs-clustered-service -p /deployments/d1/clusters/c1/services/apachecs -o active=2 standby=0 name=vcs1 online_timeout=45 node_list='n1,n2'
+litp create -t service -p /software/services/service1 -o service_name=httpd
+litp inherit -p /deployments/d1/clusters/c1/services/apachecs/applications/service1 -s /software/services/service1
+
+litp create -t service -p /software/services/httpd -o service_name=httpd start_command="/etc/init.d/httpd start" stop_command="/etc/init.d/httpd stop" status_command="/etc/init.d/httpd status"
+litp create -t package -p /software/items/httpd -o name=httpd
+litp inherit -p /software/services/httpd/packages/httpd -s /software/items/httpd
+litp inherit -p /deployments/d1/clusters/c1/nodes/n1/services/httpd -s /software/services/httpd
+
+assertErrorMessage 'Create plan failed: Service "httpd" is managed by the VCS plugin' create_plan

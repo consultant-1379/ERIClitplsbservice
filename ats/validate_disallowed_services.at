@@ -1,0 +1,57 @@
+litp create -t os-profile -p /software/profiles/rhel_6_2 -o name='sample-profile' path='/profiles/node-iso/'
+litp create -t system -p /infrastructure/systems/system1 -o system_name='MN1VM'
+litp create -t storage-profile-base -p /infrastructure/storage/storage_profiles/profile_1
+
+litp create -t deployment -p /deployments/d1
+litp create -t cluster -p /deployments/d1/clusters/c1
+litp create -t node -p /deployments/d1/clusters/c1/nodes/n1 -o hostname=node1
+litp create -t node -p /deployments/d1/clusters/c1/nodes/n2 -o hostname=node2
+
+litp create -t eth -p /deployments/d1/clusters/c1/nodes/n1/network_interfaces/nic0 -o device_name=eth0 network_name='nodes' macaddress='08:00:27:24:8f:27' ipaddress=10.10.10.101
+litp create -t eth -p /deployments/d1/clusters/c1/nodes/n2/network_interfaces/nic0 -o device_name=eth0 network_name='nodes' macaddress='08:00:27:24:8f:28' ipaddress=10.10.10.102
+
+litp inherit -p /deployments/d1/clusters/c1/nodes/n1/system -s /infrastructure/systems/system1
+litp inherit -p /deployments/d1/clusters/c1/nodes/n1/os -s /software/profiles/rhel_6_2
+litp inherit -p /deployments/d1/clusters/c1/nodes/n1/storage_profile -s /infrastructure/storage/storage_profiles/profile_1
+
+litp inherit -p /deployments/d1/clusters/c1/nodes/n2/system -s /infrastructure/systems/system1
+litp inherit -p /deployments/d1/clusters/c1/nodes/n2/os -s /software/profiles/rhel_6_2
+litp inherit -p /deployments/d1/clusters/c1/nodes/n2/storage_profile -s /infrastructure/storage/storage_profiles/profile_1
+
+assertErrorMessage 'Create plan failed: no tasks were generated' create_plan
+
+assertErrorMessage 'Service "puppet" is managed by LITP' create -t service -p /software/services/puppet -o service_name=puppet
+
+assertErrorMessage 'Service "mcollective" is managed by LITP' create -t service -p /software/services/puppet -o service_name=mcollective
+
+litp create -t service -p /ms/services/litpd -o service_name=litpd
+litp create -t package -p /software/items/litpd -o name=litpd
+litp inherit -p /ms/items/litpd -s /software/items/litpd
+
+assertErrorMessage 'Create plan failed: Service "litpd" is managed by LITP' create_plan
+
+litp remove -p /ms/services/litpd
+litp remove -p /software/items/litpd
+
+assertErrorMessage 'Create plan failed: no tasks were generated' create_plan
+
+litp create -t service -p /software/services/cobblerd -o service_name=cobblerd
+litp create -t package -p /software/items/cobblerd -o name=cobblerd
+litp inherit -p /software/services/cobblerd/packages/cobblerd -s /software/items/cobblerd
+litp inherit -p /deployments/d1/clusters/c1/nodes/n1/services/cobblerd -s /software/services/cobblerd
+
+litp create_plan
+assertTask 0  "service" node1 /deployments/d1/clusters/c1/nodes/n1/services/cobblerd
+
+litp run_plan
+
+litp remove -p /deployments/d1/clusters/c1/nodes/n1/services/cobblerd
+assertTask 0  "service" node1 /deployments/d1/clusters/c1/nodes/n1/services/cobblerd
+litp create_plan
+litp run_plan
+
+litp inherit -p /deployments/d1/clusters/c1/nodes/n1/services/cobblerd -s /software/services/cobblerd
+
+litp create_plan
+assertTask 0  "service" node1 /deployments/d1/clusters/c1/nodes/n1/services/cobblerd
+litp run_plan
